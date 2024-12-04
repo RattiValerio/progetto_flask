@@ -1,0 +1,23 @@
+g = 9.81
+x = v0x * t
+y = v0y *t - 1/2 * g * t ^ 2
+
+Velocità iniziali
+v0x = v0 * cos(angolo_verticale) * cos(angolo_orizzontale)
+v0z = v0 * cos(angolo_verticale) * sin(angolo_orizzontale)
+v0y = v0 * sin(angolo_verticale)
+
+Tempo di volo
+y0 + v0y * t - 1/2 * g * t ^ 2
+tf = (2 * v0y) / g
+
+
+
+Posizione finale
+xf = x0 + v0 * cos(angolo_verticale) * cos(angolo_orizzontale) * tf
+zf = z0 + z0 * cos(angolo_verticale) * sin(angolo_orizzontale) * tf
+yf = y0 ???
+
+
+Altezza massima
+ymax = y0 + ((v0 * sin(angolo_verticale)) ^ 2) / 2 * g

@@ -1,0 +1,13 @@
+calcolo balistico del colpo dell'artiglieria
+
+forniti:
+ velocità di volata -> default 800 (m/s)
+ posizione iniziale -> default 0,0,0
+ angolazione verticale -> default 45 (°)
+ angolazione orizzonatale -> default 0 (°)
+ massa munizione -> default 40 (kg)
+
+ 
+tenere conto di:
+ attrito aria
+ vento
