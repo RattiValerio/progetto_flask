@@ -18,6 +18,9 @@ xf = x0 + v0 * cos(angolo_verticale) * cos(angolo_orizzontale) * tf
 zf = z0 + z0 * cos(angolo_verticale) * sin(angolo_orizzontale) * tf
 yf = y0 ???
 
+Range
+R = (v^2 * sin(2 * angolo_verticale)) / g
+
 
 Altezza massima
 ymax = y0 + ((v0 * sin(angolo_verticale)) ^ 2) / 2 * g
