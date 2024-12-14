@@ -1,14 +1,51 @@
 import math
 import re
+import googlemaps
 
 import requests
 from flask import render_template, url_for, Blueprint, request, jsonify
 
 app = Blueprint('api', __name__)
 
-def calculate_with_drag(m, v0, angle_vertical, angle_horizontal, alt, dt=0.01):
+gmaps = googlemaps.Client(key='AIzaSyC56CdAgSBK038PyGd9e5GZO7MIWruxxOk')
+
+def get_weather_data(lat, lon):
+    api_key = "178b22a70fd63d6738bd6cc84ecde753"
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"Errore nell'API: {response.status_code}, {response.text}")
+
+
+def get_weather_and_density(lat, lon):
+    weather_data = get_weather_data(lat, lon)
+    temperature = weather_data['main']['temp']
+    pressure = weather_data['main']['pressure'] * 100
+    wind_speed = weather_data['wind']['speed']
+    wind_deg = weather_data['wind']['deg']
+
+    density = calculate_air_density(pressure, temperature)
+
+    return {
+        'temperature': temperature,
+        'pressure': pressure,
+        'wind_speed': wind_speed,
+        'wind_deg': wind_deg,
+        'density': density,
+    }
+
+
+def calculate_air_density(pressure, temperature):
+    R = 287.05
+    temperature_kelvin = temperature + 273.15
+    return pressure / (R * temperature_kelvin)
+
+
+def calculate_with_drag(m, v0, angle_vertical, angle_horizontal, alt, air_data, dt=0.01):
     g = 9.81  # Accelerazione di gravità
-    rho = 1.225  # Densità dell'aria (kg/m^3)
+    rho = float(air_data.get("density") or 1.225) # Densità dell'aria (kg/m^3)
     C_d = 0.47  # Coefficiente di resistenza per una sfera
     A = 0.01  # Area frontale del proiettile (m^2)
 
@@ -16,12 +53,9 @@ def calculate_with_drag(m, v0, angle_vertical, angle_horizontal, alt, dt=0.01):
     vy = v0 * math.sin(angle_vertical)
     vz = v0 * math.cos(angle_vertical) * math.sin(angle_horizontal)
 
-    # Stato iniziale
     x, y, z = 0, alt, 0
     t = 0
-    energy_total = 0.5 * m * v0 ** 2 + m * g * alt
-
-    positions = []
+    max_height = y
 
     while y >= 0:
         v = math.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
@@ -39,15 +73,13 @@ def calculate_with_drag(m, v0, angle_vertical, angle_horizontal, alt, dt=0.01):
         y += vy * dt
         z += vz * dt
 
-        energy_kinetic = 0.5 * m * (vx ** 2 + vy ** 2 + vz ** 2)
-        energy_potential = m * g * max(y, 0)
-        energy_total = energy_kinetic + energy_potential
-
-        positions.append((x, y, z))
+        max_height = max(max_height, y)
 
         t += dt
 
-    return positions, energy_total, t
+    horizontal_distance = calculate_horizontal_distance(0, 0, x, z)
+
+    return (x, y, z), max_height, horizontal_distance, t
 
 
 def decimal_to_dms(decimal_coord, coord_type):
@@ -63,12 +95,13 @@ def decimal_to_dms(decimal_coord, coord_type):
     elif coord_type == 'longitude':
         direction = 'W' if is_negative else 'E'
 
-    return f"{degrees}°{minutes}'{seconds:.2f}\"{direction}"
+    return f"{degrees}°{minutes}'{seconds:.2f}\" {direction}"
 
 
 def dms_to_decimal(dms_str):
     deg, minutes, seconds, direction = re.split('[°\'"]', dms_str)
     return (float(deg) + float(minutes) / 60 + float(seconds) / (60 * 60)) * (-1 if direction in ['W', 'S'] else 1)
+
 
 def get_altitude(latitude, longitude):
     url = f"https://api.open-elevation.com/api/v1/lookup"
@@ -80,6 +113,7 @@ def get_altitude(latitude, longitude):
         return data['results'][0]['elevation']
     else:
         raise Exception(f"Errore nell'API: {response.status_code}, {response.text}")
+
 
 def calculate_new_coordinates(lat, lon, distance, angle):
     R = 6371000  # Earth radius (meters)
@@ -103,32 +137,42 @@ def calculate_new_coordinates(lat, lon, distance, angle):
     return new_lat, new_lon
 
 
+def calculate_horizontal_distance(x1, z1, x2, z2):
+    return math.sqrt((x2 - x1) ** 2 + (z2 - z1) ** 2)
+
+
 @app.route('/calculate/projectile_ballistics', methods=['POST'])
 def calculate_projectile_ballistics():
     lat = dms_to_decimal(request.json.get('latitude'))
     lon = dms_to_decimal(request.json.get('longitude'))
-    alt = request.json.get('altitude')
+    alt = get_altitude(lat, lon)
 
     v0 = request.json.get('muzzle_speed')
     vertical_angle = math.radians(request.json.get('vertical_angle'))
     horizontal_angle = math.radians(request.json.get('horizontal_angle'))
     m = request.json.get('projectile_weight')
 
-    positions, final_energy, flight_time = calculate_with_drag(m, v0, vertical_angle, horizontal_angle, alt)
+    air_data = get_weather_and_density(lat, lon)
 
-    # Posizione finale
-    final_position = positions[-1]
-    latf, lonf = calculate_new_coordinates(lat, lon, final_position[0], math.degrees(horizontal_angle))
-    yf = final_position[1]  # Altitudine finale
+    # Calcolo con attrito
+    final_position, max_height, horizontal_distance, flight_time = calculate_with_drag(
+        m, v0, vertical_angle, horizontal_angle, alt, air_data
+    )
+
+    # Posizione finale (convertita in coordinate geografiche)
+    latf, lonf = calculate_new_coordinates(lat, lon, horizontal_distance, math.degrees(horizontal_angle))
+
+    alt = get_altitude(latf, lonf)
 
     response = {
         'final_position': {
             'latitude': latf,
             'longitude': lonf,
-            'altitude': yf,
+            'altitude': alt,
             'formatted': f"{decimal_to_dms(latf, 'latitude')}, {decimal_to_dms(lonf, 'longitude')}"
         },
+        'horizontal_distance': horizontal_distance,
+        'max_height': max_height,
         'flight_time': flight_time,
-        'final_energy': final_energy
     }
     return jsonify(response), 201
