@@ -6,6 +6,49 @@ from flask import render_template, url_for, Blueprint, request, jsonify
 
 app = Blueprint('api', __name__)
 
+def calculate_with_drag(m, v0, angle_vertical, angle_horizontal, alt, dt=0.01):
+    g = 9.81  # Accelerazione di gravità
+    rho = 1.225  # Densità dell'aria (kg/m^3)
+    C_d = 0.47  # Coefficiente di resistenza per una sfera
+    A = 0.01  # Area frontale del proiettile (m^2)
+
+    vx = v0 * math.cos(angle_vertical) * math.cos(angle_horizontal)
+    vy = v0 * math.sin(angle_vertical)
+    vz = v0 * math.cos(angle_vertical) * math.sin(angle_horizontal)
+
+    # Stato iniziale
+    x, y, z = 0, alt, 0
+    t = 0
+    energy_total = 0.5 * m * v0 ** 2 + m * g * alt
+
+    positions = []
+
+    while y >= 0:
+        v = math.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
+        F_drag = 0.5 * C_d * rho * A * v ** 2
+
+        ax = -F_drag * (vx / v) / m
+        ay = -g - F_drag * (vy / v) / m
+        az = -F_drag * (vz / v) / m
+
+        vx += ax * dt
+        vy += ay * dt
+        vz += az * dt
+
+        x += vx * dt
+        y += vy * dt
+        z += vz * dt
+
+        energy_kinetic = 0.5 * m * (vx ** 2 + vy ** 2 + vz ** 2)
+        energy_potential = m * g * max(y, 0)
+        energy_total = energy_kinetic + energy_potential
+
+        positions.append((x, y, z))
+
+        t += dt
+
+    return positions, energy_total, t
+
 
 def decimal_to_dms(decimal_coord, coord_type):
     is_negative = decimal_coord < 0
@@ -59,6 +102,7 @@ def calculate_new_coordinates(lat, lon, distance, angle):
 
     return new_lat, new_lon
 
+
 @app.route('/calculate/projectile_ballistics', methods=['POST'])
 def calculate_projectile_ballistics():
     lat = dms_to_decimal(request.json.get('latitude'))
@@ -68,21 +112,14 @@ def calculate_projectile_ballistics():
     v0 = request.json.get('muzzle_speed')
     vertical_angle = math.radians(request.json.get('vertical_angle'))
     horizontal_angle = math.radians(request.json.get('horizontal_angle'))
+    m = request.json.get('projectile_weight')
 
-    g = 9.81
+    positions, final_energy, flight_time = calculate_with_drag(m, v0, vertical_angle, horizontal_angle, alt)
 
-    v0x = v0 * math.cos(vertical_angle) * math.cos(horizontal_angle)
-    v0y = v0 * math.sin(vertical_angle)
-    v0z = v0 * math.cos(vertical_angle) * math.sin(horizontal_angle)
-
-    tf = (2 * v0y) / g
-
-    ymax = alt + (v0y * v0y) / (2 * g)
-
-    range = (v0 ** 2 * math.sin(2 * vertical_angle)) / g
-
-    latf, lonf = calculate_new_coordinates(lat, lon, range, math.degrees(horizontal_angle))
-    yf = get_altitude(latf, lonf)
+    # Posizione finale
+    final_position = positions[-1]
+    latf, lonf = calculate_new_coordinates(lat, lon, final_position[0], math.degrees(horizontal_angle))
+    yf = final_position[1]  # Altitudine finale
 
     response = {
         'final_position': {
@@ -91,77 +128,7 @@ def calculate_projectile_ballistics():
             'altitude': yf,
             'formatted': f"{decimal_to_dms(latf, 'latitude')}, {decimal_to_dms(lonf, 'longitude')}"
         },
-        'range': range,
-        'fly_time': tf,
-        'max_height': ymax,
+        'flight_time': flight_time,
+        'final_energy': final_energy
     }
     return jsonify(response), 201
-
-
-# def calculate_projectile_ballistics():
-#     lat = dms_to_decimal(request.json.get('latitude'))
-#     lon = dms_to_decimal(request.json.get('longitude'))
-#     alt = request.json.get('altitude')
-#
-#     v0 = request.json.get('muzzle_speed')
-#
-#     vertical_angle = math.radians(request.json.get('vertical_angle'))
-#
-#     horizontal_angle = math.radians(request.json.get('horizontal_angle'))
-#
-#     m = request.json.get('projectile_weight')
-#
-#     g = 9.81
-#
-#     # x = v0x * t
-#     # y = v0y *t - 1/2 * g * t ^ 2
-#
-#     # Velocità iniziali
-#     # v0x = v0 * cos(angolo_verticale) * cos(angolo_orizzontale)
-#     # v0z = v0 * cos(angolo_verticale) * sin(angolo_orizzontale)
-#     # v0y = v0 * sin(angolo_verticale)
-#
-#     v0x = v0 * math.cos(vertical_angle) * math.cos(horizontal_angle)
-#     v0z = v0 * math.cos(vertical_angle) * math.sin(horizontal_angle)
-#     v0y = v0 * math.sin(vertical_angle)
-#
-#     # Tempo di volo
-#     # y0 + v0y * t - 1/2 * g * t ^ 2
-#     # tf = (2 * v0y) / g
-#
-#     tf = (2 * v0y) / g
-#
-#     # Posizione finale
-#     # xf = x0 + v0 * cos(angolo_verticale) * cos(angolo_orizzontale) * tf
-#     # zf = z0 + z0 * cos(angolo_verticale) * sin(angolo_orizzontale) * tf
-#     # yf = y0 ???
-#
-#     xf = lat + v0x * tf
-#     zf = lon + v0z * tf
-#     yf = get_altitude(lat, lon)
-#
-#     # Altezza massima
-#     # ymax = y0 + ((v0 * sin(angolo_verticale)) ^ 2) / 2 * g
-#
-#     ymax = alt + (v0y * v0y) / (2 * g)
-#
-#     latf, lonf = calculate_new_coordinates(lat, lon, tf, horizontal_angle)
-#
-#     # Range
-#     # range = (v0^2 * sin(2 * angolo_verticale)) / g
-#     range = 0
-#     if math.sin(vertical_angle) != 1:
-#         range = (float(v0) * float(v0) * math.sin(2 * vertical_angle)) / g
-#
-#     response = {
-#         'final_position': {
-#             'latitude': latf,
-#             'longitude': lonf,
-#             'altitude': yf,
-#             'formatted': f"{decimal_to_dms(latf, 'latitude')}, {decimal_to_dms(lonf, 'longitude')}"
-#         },
-#         'range': range,
-#         'fly_time': tf,
-#         'max_height': ymax,
-#     }
-#     return jsonify(response), 201
