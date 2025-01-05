@@ -1,0 +1,27 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  BASE_HOST_ONLY_NETWORK = "192.168.56.10"
+  BOX_IMAGE = "ubuntu/jammy64"
+
+  # Web VM config
+  config.vm.define "dock" do |dock|
+    dock.vm.box = BOX_IMAGE
+    dock.vm.hostname = "dock"
+
+    # Network configuration
+    dock.vm.network "private_network", ip: "#{BASE_HOST_ONLY_NETWORK}", name: "VirtualBox Host-Only Ethernet Adapter"
+    
+    # Provisioning
+    dock.vm.provision "shell", path: "docker-install.sh"
+    dock.vm.provision "shell", path: "opentopodata-setup.sh"
+
+    # Virtual box settings
+    dock.vm.provider "virtualbox" do |vb|
+        vb.name = "dock"
+        vb.memory = "4096"
+        vb.cpus = 3
+    end
+  end
+end
