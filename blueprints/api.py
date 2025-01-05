@@ -16,7 +16,6 @@ def get_weather_data(lat, lon):
     else:
         raise Exception(f"Errore nell'API: {response.status_code}, {response.text}")
 
-
 def get_weather_and_density(lat, lon):
     weather_data = get_weather_data(lat, lon)
     temperature = weather_data['main']['temp']
@@ -34,7 +33,6 @@ def get_weather_and_density(lat, lon):
         'density': density,
     }
 
-
 def calculate_air_density(pressure, temperature):
     R = 287.05
     temperature_kelvin = temperature + 273.15
@@ -43,7 +41,7 @@ def calculate_air_density(pressure, temperature):
 def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, air_data, dt=0.01):
     g = 9.81  # Accelerazione di gravità
     air_density = float(air_data.get("density") or 1.225)  # Densità dell'aria (kg/m^3)
-    C_d = 0.47  # Coefficiente di resistenza per una sfera
+    C_r = 0.47  # Coefficiente di resistenza per una sfera
     A = 0.01  # Area frontale del proiettile (m^2)
 
     # Componenti del vento
@@ -77,7 +75,8 @@ def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, 
         v = math.sqrt(rel_vx ** 2 + vy ** 2 + rel_vz ** 2)
 
         # Forza di resistenza aerodinamica
-        F_drag = 0.5 * C_d * air_density * A * v ** 2
+        # R = 1/2 * CR * DAria *
+        F_drag = 0.5 * C_r * air_density * A * v ** 2
 
         # Accelerazioni
         ax = -F_drag * (rel_vx / v) / m
@@ -191,7 +190,6 @@ def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, 
 #
 #     return (x, y, z), max_height, horizontal_distance, t
 
-
 def decimal_to_dms(decimal_coord, coord_type):
     is_negative = decimal_coord < 0
     decimal_coord = abs(decimal_coord)
@@ -212,7 +210,6 @@ def dms_to_decimal(dms_str):
     deg, minutes, seconds, direction = re.split('[°\'"]', dms_str)
     return (float(deg) + float(minutes) / 60 + float(seconds) / (60 * 60)) * (-1 if direction in ['W', 'S'] else 1)
 
-
 def get_altitude(latitude, longitude):
     #url = f"https://api.open-elevation.com/api/v1/lookup"
     # url = f"http://192.168.56.10:5000/v1/test-dataset"
@@ -224,12 +221,6 @@ def get_altitude(latitude, longitude):
         return str(data['results'][0]['elevation'])
     else:
         raise Exception(f"Errore nell'API: {response.status_code}, {response.text}")
-
-
-@app.route('/alt/')
-def get_alt():
-    a = get_altitude(56.35,123.90)
-    return a
 
 def calculate_new_coordinates(lat, lon, distance, angle):
     R = 6371000  # Earth radius (meters)
