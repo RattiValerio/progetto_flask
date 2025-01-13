@@ -71,7 +71,7 @@ def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, 
     max_height = y
 
     while y > 0:
-        print(f"{x},{y},{z}")
+        print(f"X: {x:.2f} | Y: {x:.2f} | Z: {x:.2f}")
 
         # Obtain terrain altitude
         horizontal_distance = math.sqrt(x ** 2 + z ** 2)
@@ -266,3 +266,15 @@ def calculate_projectile_ballistics():
     save_response(request_id, response)
 
     return jsonify(response), 201
+
+
+@app.route('/get/requests', methods=['GET'])
+def get_requests():
+    api_requests = Request.query.all()
+    return jsonify([r.to_dict() for r in api_requests]), 200
+
+
+@app.route('/get/request/<request_id>', methods=['GET'])
+def get_request_by_id(request_id):
+    api_requests = Request.query.filter_by(id=request_id).all()
+    return jsonify([r.to_dict() for r in api_requests]), 200

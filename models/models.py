@@ -2,6 +2,7 @@ from datetime import datetime
 
 from models.conn import db
 
+
 class Request(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     latitude = db.Column(db.String, nullable=False)
@@ -15,6 +16,31 @@ class Request(db.Model):
 
     response = db.relationship('Response', backref='request', uselist=False)
 
+    # 'id': self.id,
+    # 'latitude': self.latitude,
+    # 'longitude': self.longitude,
+    # 'muzzle_speed': self.muzzle_speed,
+    # 'vertical_angle': self.vertical_angle,
+    # 'horizontal_angle': self.horizontal_angle,
+    # 'projectile_weight': self.projectile_weight,
+    # 'timestamp': self.timestamp,
+    # 'sender': self.sender,
+    def to_dict(self):
+        return {
+            'request': {
+                'id': self.id,
+                'latitude': self.latitude,
+                'longitude': self.longitude,
+                'muzzle_speed': self.muzzle_speed,
+                'vertical_angle': self.vertical_angle,
+                'horizontal_angle': self.horizontal_angle,
+                'projectile_weight': self.projectile_weight,
+                'timestamp': self.timestamp,
+                'sender': self.sender,
+            },
+            'response': self.response.to_dict()
+        }
+
 
 class Response(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -26,3 +52,18 @@ class Response(db.Model):
     max_height = db.Column(db.Float, nullable=False)
     max_height_relative = db.Column(db.Float, nullable=False)
     flight_time = db.Column(db.Integer, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'request_id': self.request_id,
+            'final_position': {
+                'latitude': self.final_position_lat,
+                'longitude': self.final_position_lon,
+                'altitude': self.final_position_alt
+            },
+            'horizontal_distance': self.horizontal_distance,
+            'max_height': self.max_height,
+            'max_height_relative': self.max_height_relative,
+            'flight_time': self.flight_time
+        }
