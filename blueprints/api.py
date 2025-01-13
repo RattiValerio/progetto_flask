@@ -1,5 +1,6 @@
 import math
 import re
+import os
 from time import sleep
 
 import requests
@@ -10,14 +11,16 @@ from models.models import Request, Response
 
 app = Blueprint('api', __name__)
 
+
 def get_weather_data(lat, lon):
-    api_key = "178b22a70fd63d6738bd6cc84ecde753"
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+    api_key = os.getenv('OPENWEATHER_API_KEY')
+    url = f"{os.getenv('OPENWEATHER_URL')}/{os.getenv('OPENWEATHER_VERSION')}/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     response = requests.get(url)
     if response.status_code == 200:
         return response.json()
     else:
         raise Exception(f"Errore nell'API: {response.status_code}, {response.text}")
+
 
 def get_weather_and_density(lat, lon):
     weather_data = get_weather_data(lat, lon)
@@ -36,10 +39,12 @@ def get_weather_and_density(lat, lon):
         'density': density,
     }
 
+
 def calculate_air_density(pressure, temperature):
     R = 287.05  # Specific gas constant for dry air in J/(kg·K)
     temperature_kelvin = temperature + 273.15  # Convert temperature from Celsius to Kelvin
     return pressure / (R * temperature_kelvin)  # Apply the ideal gas law to calculate density
+
 
 def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, air_data, dt=0.01):
     g = 9.81  # Gravitational acceleration
@@ -69,8 +74,9 @@ def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, 
         print(f"{x},{y},{z}")
 
         # Obtain terrain altitude
-        horizontal_distance = math.sqrt(x**2 + z**2)
-        current_lat, current_lon = calculate_new_coordinates(lat, lon, horizontal_distance, math.degrees(angle_horizontal))
+        horizontal_distance = math.sqrt(x ** 2 + z ** 2)
+        current_lat, current_lon = calculate_new_coordinates(lat, lon, horizontal_distance,
+                                                             math.degrees(angle_horizontal))
         terrain_altitude = float(get_altitude(current_lat, current_lon))
 
         # Velocity relative to the fluid (wind)
@@ -108,9 +114,10 @@ def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, 
         t += dt
 
     # Calculate horizontal distance
-    horizontal_distance = math.sqrt(x**2 + z**2)
+    horizontal_distance = math.sqrt(x ** 2 + z ** 2)
 
     return (x, y, z), max_height, horizontal_distance, t
+
 
 def decimal_to_dms(decimal_coord, coord_type):
     is_negative = decimal_coord < 0  # Determine if the coordinate is negative
@@ -130,12 +137,14 @@ def decimal_to_dms(decimal_coord, coord_type):
     # Return the formatted DMS string with direction
     return f"{degrees}°{minutes}'{seconds:.2f}\" {direction}"
 
+
 def dms_to_decimal(dms_str):
-    deg, minutes, seconds, direction = re.split('[°\'"]', dms_str) # Split the DMS string into components
+    deg, minutes, seconds, direction = re.split('[°\'"]', dms_str)  # Split the DMS string into components
     return (float(deg) + float(minutes) / 60 + float(seconds) / (60 * 60)) * (-1 if direction in ['W', 'S'] else 1)
 
+
 def get_altitude(latitude, longitude):
-    url = f"http://192.168.56.10:5000/v1/gebco"
+    url = f"{os.getenv('ELEVATION_API_URL')}/{os.getenv('ELEVATION_DATASET')}"
     params = {'locations': f"{latitude},{longitude}"}
     response = requests.get(url, params=params)
     if response.status_code == 200:
@@ -143,6 +152,7 @@ def get_altitude(latitude, longitude):
         return str(data['results'][0]['elevation'])
     else:
         raise Exception(f"Errore nell'API: {response.status_code}, {response.text}")
+
 
 def calculate_new_coordinates(lat, lon, distance, angle):
     R = 6371000  # Earth's radius in meters
@@ -169,8 +179,10 @@ def calculate_new_coordinates(lat, lon, distance, angle):
 
     return new_lat, new_lon
 
+
 def calculate_horizontal_distance(x1, z1, x2, z2):
     return math.sqrt((x2 - x1) ** 2 + (z2 - z1) ** 2)
+
 
 def save_request(data):
     new_request = Request(
@@ -185,6 +197,7 @@ def save_request(data):
     db.session.add(new_request)
     db.session.commit()
     return new_request.id
+
 
 def save_response(request_id, response_data):
     new_response = Response(
@@ -230,7 +243,7 @@ def calculate_projectile_ballistics():
         'sender': request.remote_addr
     })
 
-    flight_time = int(horizontal_distance/(v0 * math.cos(vertical_angle)))
+    flight_time = int(horizontal_distance / (v0 * math.cos(vertical_angle)))
 
     # Posizione finale (convertita in coordinate geografiche)
     latf, lonf = calculate_new_coordinates(lat, lon, horizontal_distance, math.degrees(horizontal_angle))
@@ -253,4 +266,3 @@ def calculate_projectile_ballistics():
     save_response(request_id, response)
 
     return jsonify(response), 201
-

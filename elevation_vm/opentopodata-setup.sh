@@ -1,5 +1,6 @@
 #!/bin/bash
 apt update
+apt upgrade -y
 apt-get install -y git
 apt-get install -y make
 apt-get install -y unzip
