@@ -13,6 +13,14 @@ app = Blueprint('api', __name__)
 
 
 def get_weather_data(lat, lon):
+    """
+    Gets weather data from the OpenWeatherMap API
+
+    @param lat: latitude of the position
+    @param lon: longitude of the position
+    @return: a JSON object containing the weather data
+    """
+
     api_key = os.getenv('OPENWEATHER_API_KEY')
     url = f"{os.getenv('OPENWEATHER_URL')}/{os.getenv('OPENWEATHER_VERSION')}/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     response = requests.get(url)
@@ -23,6 +31,13 @@ def get_weather_data(lat, lon):
 
 
 def get_weather_and_density(lat, lon):
+    """
+    Gets weather data from the OpenWeatherMap API and calculates the air density
+
+    @param lat: latitude of the position
+    @param lon: longitude of the position
+    @return: a dictionary containing the weather data and the calculated air density
+    """
     weather_data = get_weather_data(lat, lon)
     temperature = weather_data['main']['temp']
     pressure = weather_data['main']['pressure'] * 100
@@ -41,12 +56,35 @@ def get_weather_and_density(lat, lon):
 
 
 def calculate_air_density(pressure, temperature):
+    """
+    Calculates the air density using the ideal gas law
+
+    @param pressure: atmospheric pressure in pascals
+    @param temperature: air temperature in degrees Celsius
+    @return: air density in kg/m^3
+    """
     R = 287.05  # Specific gas constant for dry air in J/(kg·K)
     temperature_kelvin = temperature + 273.15  # Convert temperature from Celsius to Kelvin
     return pressure / (R * temperature_kelvin)  # Apply the ideal gas law to calculate density
 
 
 def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, air_data, dt=0.01):
+    """
+    Calculates the trajectory of a projectile considering atmospheric drag
+
+
+    @param lat: The latitude of the starting position
+    @param lon: The longitude of the starting position
+    @param m: The mass of the projectile
+    @param v0: The muzzle speed of the projectile
+    @param angle_vertical: The angle of departure (relative to the horizontal)
+    @param angle_horizontal: The angle of departure (relative to the North)
+    @param alt: The starting altitude
+    @param air_data: A dictionary containing the air density, wind speed and direction
+    @param dt: The time step for the simulation
+    @return: The final position of the projectile, the maximum height reached,
+             the horizontal distance traveled, and the flight time.
+    """
     g = 9.81  # Gravitational acceleration
     air_density = float(air_data.get("density") or 1.225)  # Air density (kg/m^3)
     C_r = 0.47  # Resistance coefficient for a sphere
@@ -71,7 +109,7 @@ def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, 
     max_height = y
 
     while y > 0:
-        print(f"{x},{y},{z}")
+        print(f"X: {x:.2f} | Y: {x:.2f} | Z: {x:.2f}")
 
         # Obtain terrain altitude
         horizontal_distance = math.sqrt(x ** 2 + z ** 2)
@@ -120,6 +158,14 @@ def calculate_with_drag(lat, lon, m, v0, angle_vertical, angle_horizontal, alt, 
 
 
 def decimal_to_dms(decimal_coord, coord_type):
+    """
+    Converts a decimal coordinate to a string in the Degrees-Minutes-Seconds format
+
+
+    @param decimal_coord: The decimal coordinate to be converted
+    @param coord_type: The type of coordinate (latitude or longitude)
+    @return: The formatted DMS string with direction
+    """
     is_negative = decimal_coord < 0  # Determine if the coordinate is negative
     decimal_coord = abs(decimal_coord)  # Work with the absolute value
 
@@ -139,11 +185,24 @@ def decimal_to_dms(decimal_coord, coord_type):
 
 
 def dms_to_decimal(dms_str):
+    """
+    Converts a string in the Degrees-Minutes-Seconds format to a decimal coordinate.
+
+    @param dms_str: The DMS string to be converted
+    @return: The decimal representation of the coordinate
+    """
     deg, minutes, seconds, direction = re.split('[°\'"]', dms_str)  # Split the DMS string into components
     return (float(deg) + float(minutes) / 60 + float(seconds) / (60 * 60)) * (-1 if direction in ['W', 'S'] else 1)
 
 
 def get_altitude(latitude, longitude):
+    """
+    Gets the altitude of a given position from the Elevation API
+
+    @param latitude: The latitude of the position
+    @param longitude: The longitude of the position
+    @return: The altitude of the position
+    """
     url = f"{os.getenv('ELEVATION_API_URL')}/{os.getenv('ELEVATION_DATASET')}"
     params = {'locations': f"{latitude},{longitude}"}
     response = requests.get(url, params=params)
@@ -155,6 +214,14 @@ def get_altitude(latitude, longitude):
 
 
 def calculate_new_coordinates(lat, lon, distance, angle):
+    """Calculates the new latitude and longitude given an initial position, a distance, and an angle.
+
+    @param lat: The initial latitude
+    @param lon: The initial longitude
+    @param distance: The distance to move
+    @param angle: The angle to move in
+    @return: The new latitude and longitude
+    """
     R = 6371000  # Earth's radius in meters
 
     # Convert initial latitude and longitude to radians
@@ -181,10 +248,27 @@ def calculate_new_coordinates(lat, lon, distance, angle):
 
 
 def calculate_horizontal_distance(x1, z1, x2, z2):
+    """
+    Calculates the horizontal distance between two points in a 2D plane.
+
+    @param x1: The x-coordinate of the first point
+    @param z1: The z-coordinate of the first point
+    @param x2: The x-coordinate of the second point
+    @param z2: The z-coordinate of the second point
+    @return: The horizontal distance between the two points
+    """
     return math.sqrt((x2 - x1) ** 2 + (z2 - z1) ** 2)
 
 
 def save_request(data):
+    """
+    Saves a new request to the database.
+
+    @param data: A dictionary containing request details such as latitude,
+                 longitude, muzzle speed, vertical angle, horizontal angle,
+                 projectile weight, and sender.
+    @return: The ID of the newly created request.
+    """
     new_request = Request(
         latitude=data['latitude'],
         longitude=data['longitude'],
@@ -200,6 +284,15 @@ def save_request(data):
 
 
 def save_response(request_id, response_data):
+    """
+    Saves a new response to the database.
+
+    @param request_id: The ID of the request that the response belongs to.
+    @param response_data: A dictionary containing response details such as
+                          final position, horizontal distance, maximum height,
+                          maximum height relative to the starting altitude,
+                          and flight time.
+    """
     new_response = Response(
         request_id=request_id,
         final_position_lat=response_data['final_position']['latitude'],
@@ -216,6 +309,19 @@ def save_response(request_id, response_data):
 
 @app.route('/calculate/projectile_ballistics', methods=['POST'])
 def calculate_projectile_ballistics():
+    """
+    Calculates the trajectory of a projectile considering atmospheric drag.
+
+    @param lat: The latitude of the starting position
+    @param lon: The longitude of the starting position
+    @param alt: The starting altitude
+    @param v0: The muzzle speed of the projectile
+    @param vertical_angle: The vertical angle of departure
+    @param horizontal_angle: The horizontal angle of departure
+    @param m: The mass of the projectile
+    @param air_data: A dictionary containing air density, wind speed and direction
+    @return: The final position of the projectile, the maximum height reached, the horizontal distance traveled, and the flight time.
+    """
     lat = dms_to_decimal(request.json.get('latitude'))
     lon = dms_to_decimal(request.json.get('longitude'))
     alt = float(get_altitude(lat, lon))
@@ -265,4 +371,27 @@ def calculate_projectile_ballistics():
 
     save_response(request_id, response)
 
-    return jsonify(response), 201
+    return jsonify(response), 200
+
+
+@app.route('/get/requests', methods=['GET'])
+def get_requests():
+    """
+    Retrieves all requests from the database.
+
+    @return: A JSON response containing a list of all requests.
+    """
+    api_requests = Request.query.all()
+    return jsonify([r.to_dict() for r in api_requests]), 200
+
+
+@app.route('/get/request/<request_id>', methods=['GET'])
+def get_request_by_id(request_id):
+    """
+    Retrieves a specific request from the database by its ID.
+
+    @param request_id: The ID of the request to retrieve.
+    @return: A JSON response containing the request details.
+    """
+    api_requests = Request.query.filter_by(id=request_id).all()
+    return jsonify([r.to_dict() for r in api_requests]), 200
