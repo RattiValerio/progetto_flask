@@ -25,7 +25,6 @@ This project provides an API for simulating projectile ballistics considering va
    Make sure you have Python 3.8+ installed. Create a virtual environment and install the dependencies:
    ```bash
    python3 -m venv .venv
-   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
@@ -107,6 +106,80 @@ Simulates the trajectory of a projectile given input parameters.
 
 ---
 
+### `GET /get/requests`
+Obtains a list of all saved requests with associated responses.
+
+#### Response Body
+```json
+{
+    "request": {
+        "horizontal_angle": 0.0,
+        "id": 1,
+        "latitude": "45°58'25.068\"N",
+        "longitude": "8°52'35.1552\"E",
+        "muzzle_speed": 30.0,
+        "projectile_weight": 0.8,
+        "sender": "127.0.0.1",
+        "timestamp": "Sun, 05 Jan 2025 18:00:52 GMT",
+        "vertical_angle": 45.0
+    },
+    "response": {
+        "final_position": {
+            "altitude": 286.0,
+            "latitude": 45.97427735498425,
+            "longitude": 8.876432000000003
+        },
+        "flight_time": 3,
+        "horizontal_distance": 71.98258998728915,
+        "id": 1,
+        "max_height": 304.1096518384418,
+        "max_height_relative": 20.109651838441778,
+        "request_id": 1
+    }
+}
+```
+- **request**: Details of the request made by the client.
+- **response**: Response data associated with the request.
+
+---
+
+### `GET /get/request/<request_id>`
+Obtain a specific request by its ID and its associated response.
+
+#### Response Body
+```json
+{
+    "request": {
+        "horizontal_angle": 0.0,
+        "id": 1,
+        "latitude": "45°58'25.068\"N",
+        "longitude": "8°52'35.1552\"E",
+        "muzzle_speed": 30.0,
+        "projectile_weight": 0.8,
+        "sender": "127.0.0.1",
+        "timestamp": "Sun, 05 Jan 2025 18:00:52 GMT",
+        "vertical_angle": 45.0
+    },
+    "response": {
+        "final_position": {
+            "altitude": 286.0,
+            "latitude": 45.97427735498425,
+            "longitude": 8.876432000000003
+        },
+        "flight_time": 3,
+        "horizontal_distance": 71.98258998728915,
+        "id": 1,
+        "max_height": 304.1096518384418,
+        "max_height_relative": 20.109651838441778,
+        "request_id": 1
+    }
+}
+```
+- **request**: Details of the request made by the client.
+- **response**: Response data associated with the request.
+
+---
+
 ## Key Functions
 
 ### 1. `get_weather_data(lat, lon)`
@@ -130,7 +203,27 @@ Saves request and response data to the database.
 - Python 3.7+
 - Flask
 - Requests
+- alembic
+- blinker
+- certifi
+- charset-normalizer
+- click
+- colorama
+- Flask-Migrate
+- Flask-SQLAlchemy
+- greenlet
+- idna
+- itsdangerous
+- Jinja2
+- Mako
+- MarkupSafe
+- python-dotenv
+- requests
+- setuptools
 - SQLAlchemy
+- typing_extensions
+- urllib3
+- Werkzeug
 
 ---
 
